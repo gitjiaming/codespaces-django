@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="x-ua-compatible" content="IE=edge" >
+<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"/>
+<title>临时链接</title>
+<link rel="stylesheet" href="https://g.alicdn.com/de/prismplayer/2.13.2/skins/default/aliplayer-min.css" />
+<script type="text/javascript" charset="utf-8" src="https://g.alicdn.com/de/prismplayer/2.13.2/aliplayer-min.js"></script>
+<script type="text/javascript" charset="utf-8" src="https://srs.hiwords.net/srs/bs/js/mqtt.min.js"></script>
+<script type="text/javascript" charset="utf-8" src="https://srs.hiwords.net/srs/bs/js/jquery.min.js"></script>
+</head>
+<body>
+<div class="prism-player" id="player-con" align="center" style ="text-align:center;"></div>
+<script>
+//https://pull.hiwords.net/live_008/1653053686863.m3u8
+
+
+var player = new Aliplayer({
+  "id": "player-con",
+  "source": "https://pull.hiwords.net/live/1653053686863123.m3u8",
+  "width": "100%",
+  "height": "600px",
+  "autoplay": false,
+  "isLive": true,
+  "cover": "https://srs.hiwords.net/srs/bs/img/bj_20220618.jpg",
+  "rePlay": false,
+  "playsinline": true,
+  "preload": true,
+  "controlBarVisibility": "hover",
+  "useH5Prism": true
+}, function (player) {
+  player.play();
+    console.log("The player is created");
+  }
+);
+
+var playCode = "";
+
+function initEmqt(){
+
+    let cur_Millisecond = "bj_1128_xl_"+new Date().getTime()+"_"+(Math.floor(Math.random() * 10000)+10000);
+    const options = {
+      clean: true, // true: 清除会话, false: 保留会话
+      connectTimeout: 4000, // 超时时间
+      // 认证信息
+      clientId: 'emqx_'+ cur_Millisecond,
+      username: 'emqx_test',
+      password: 'emqx_test',
+        }
+
+        // 连接字符串, 通过协议指定使用的连接方式
+        // ws 未加密 WebSocket 连接
+        // wss 加密 WebSocket 连接
+        // mqtt 未加密 TCP 连接
+        // mqtts 加密 TCP 连接
+        // wxs 微信小程序连接
+        // alis 支付宝小程序连接
+        const connectUrl = 'wss://srs.hiwords.net/mqtt'
+        const client = mqtt.connect(connectUrl, options)
+		
+      client.on('connect', (error) => {
+              console.log('正在连接:', error)
+              let topics = {"bj_xl/sub/liveUrl":{qos:1},"bj_xl/sub/closeWindow":{qos:0}}
+              client.subscribe(topics, (err) => {
+                if (!err) {
+                    console.log('订阅成功!')
+                }
+            });	
+        });
+
+        client.on('reconnect', (error) => {
+            console.log('正在重连:', error)			
+        })
+
+        client.on('error', (error) => {
+            console.log('连接失败:', error)
+        })
+
+        client.on('message', (topic, message) => {
+          let payload = String.fromCharCode.apply(null, message);	 
+          payload = decodeURIComponent(escape(payload));//没有这一步中文会乱码
+         let msg_obj = JSON.parse(payload);
+
+         if(msg_obj['type']){
+             if (msg_obj['type'] == "play" ){                     
+                     playCode = msg_obj['playCode'];
+                     playUrl =  msg_obj['playUrl'];
+                     let SourceUrl = player.getSourceUrl();
+                     if(SourceUrl == playUrl){
+                       return;
+                     }                          
+                    try {
+                      if(SourceUrl &&SourceUrl.length >0){
+                        player.stop();    
+                      }                            
+                     } catch (error) {
+                       console.log("停止失败")
+                     }               
+                    try {	
+                           player.loadByUrl(msg_obj['playUrl'],1);			
+                           player.play();
+                         } catch (error) {
+                           console.log("播放失败")
+                         }
+              }else if (msg_obj['type'] == "close" ){ 
+                  alert("直播已结束，将关闭该直播页面！！")
+                  window.close();
+              }    
+
+         }else{
+          console.error("不规范协议内容")
+         }
+            
+          
+        })
+
+        function myFunction(){
+            var personCode = prompt("请输入你的验证码","");
+            if(!(playCode.length >0 && personCode == playCode)){
+                location.reload(true);              
+                return;
+            }
+            $("#player-con").css("display","")
+            try {
+              player.play();
+            } catch (error) {
+              console.log("播放失败")
+            }
+          
+           
+          }
+         // var timer = setTimeout(myFunction,100);
+         // var timer = setTimeout(myFunction,100);
+        
+}
+
+//initEmqt();
+
+</script>
+</body>
+</html>
