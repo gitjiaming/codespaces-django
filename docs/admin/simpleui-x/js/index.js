@@ -574,7 +574,27 @@
                     delete sessionStorage['tabs'];
                     setCookie('theme', '');
                     setCookie('theme_name', '');
-                    window.location.href = window.urls.logout;
+                    //window.location.href = window.urls.logout;
+                      // 从cookie中获取CSRF令牌
+                    var csrfToken = getCookie('csrftoken');
+
+                    // 创建一个表单元素
+                    var form = document.createElement('form');
+                    form.action = window.urls.logout;  // 设置表单提交的URL
+                    form.method = 'POST';  // 设置表单提交的方法为POST
+
+                    // 添加CSRF令牌到表单
+                    var csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = csrfToken;
+                    form.appendChild(csrfInput);
+
+                    // 将表单添加到body中，但不显示
+                    document.body.appendChild(form);
+
+                    // 提交表单
+                    form.submit();
                 }).catch(function () {
 
                 });
